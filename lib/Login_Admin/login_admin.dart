@@ -1,10 +1,10 @@
 import 'package:email_validator/email_validator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:tugas_akhir/Navigation_Bar/admin_Akses.dart';
 import 'package:tugas_akhir/controller_main/account_admin.dart';
-import 'package:tugas_akhir/controller_main/main.dart';
 
 class LoginScreenAdmin extends StatefulWidget {
   const LoginScreenAdmin({
@@ -20,7 +20,8 @@ class LoginScreenAdmin extends StatefulWidget {
 
 class _LoginScreenAdminState extends State<LoginScreenAdmin> {
   final _formKey = GlobalKey<FormState>();
-
+  final _auth = FirebaseAuth.instance;
+  String? errorMessage;
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
@@ -74,7 +75,9 @@ class _LoginScreenAdminState extends State<LoginScreenAdmin> {
       child: MaterialButton(
         padding: const EdgeInsets.fromLTRB(20, 15, 20, 15),
         minWidth: MediaQuery.of(context).size.width,
-        onPressed: loginPage,
+        onPressed: () {
+          LoginPage(emailController.text, passwordController.text);
+        },
         child: const Text(
           "Login Admin",
           textAlign: TextAlign.center,
@@ -136,25 +139,42 @@ class _LoginScreenAdminState extends State<LoginScreenAdmin> {
     );
   }
 
-  Future loginPage() async {
-    final isValid = _formKey.currentState!.validate();
-    if (!isValid) return;
-    showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-              child: CircularProgressIndicator(),
-            ));
-
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: emailController.text.trim(),
-          password: passwordController.text.trim());
-    } on FirebaseAuthException catch (e) {
-      if (kDebugMode) {
-        print(e);
+  void LoginPage(String email, String password) async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        await _auth
+            .signInWithEmailAndPassword(email: email, password: password)
+            .then((uid) => {
+                  Fluttertoast.showToast(msg: "Akun Berhasil Login"),
+                  Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (context) => AdminAkses())),
+                });
+      } on FirebaseAuthException catch (error) {
+        switch (error.code) {
+          case "invalid-email":
+            errorMessage = "Email yang anda masukan invalid";
+            break;
+          case "wrong-password":
+            errorMessage = "password yang anda masukan salah";
+            break;
+          case "user-not-found":
+            errorMessage = "Akun yang anda masukan tidak ditemukan";
+            break;
+          case "user-disabled":
+            errorMessage = "User with this email has been disabled.";
+            break;
+          case "too-many-requests":
+            errorMessage = "Terlalu banyak request";
+            break;
+          case "operation-not-allowed":
+            errorMessage = "Masukan email dan password tidak valid";
+            break;
+          default:
+            errorMessage = "Error tidak teridentifikasi";
+        }
+        Fluttertoast.showToast(msg: errorMessage!);
+        print(error.code);
       }
     }
-    navigatorKey.currentState!.popUntil((route) => route.isFirst);
   }
 }
